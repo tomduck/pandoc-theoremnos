@@ -82,8 +82,8 @@ Check that you are in the `master` branch.
 
 Tagging  (update the version number):
 
-    git tag -a 2.0.0 -m "New release."
-    git push origin 2.0.0
+    git tag -a 2.0.0a1 -m "New release."
+    git push origin 2.0.0a1
 
 
 ### Distributing ###
@@ -96,7 +96,7 @@ Create source and binary distributions using
     
 Upload to pypi (update the version number) using
 
-    twine upload dist/pandoc-theoremnos-2.0.0.tar.gz \
-                 dist/pandoc_theoremnos-2.0.0-py3-none-any.whl
+    twine upload dist/pandoc-theoremnos-2.0.0a1.tar.gz \
+                 dist/pandoc_theoremnos-2.0.0a1-py3-none-any.whl
 
 (see https://pypi.python.org/pypi/twine).

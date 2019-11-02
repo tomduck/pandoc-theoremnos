@@ -45,7 +45,7 @@ setup(
     download_url='https://github.com/tomduck/pandoc-theoremnos/tarball/' + \
                  __version__,
 
-    install_requires=['pandoc-xnos~=2.2.1'],
+    install_requires=['pandoc-xnos~=2.2.2'],
 
     py_modules=['pandoc_theoremnos'],
     entry_points={'console_scripts':['pandoc-theoremnos = pandoc_theoremnos:main']},
