@@ -156,9 +156,10 @@ def _add_markup(fmt, thm, value):
     ret = None
 
     if thm['is_unnumbered']:  # Unnumbered is also unreferenceable
-        assert False, "is unnumbered"
-        ret = None
-    elif fmt in ['latex', 'beamer']:
+        assert False, "is unnumbered"  # Not currently supported
+
+    if fmt in ['latex', 'beamer']:
+
         # remark: tagged theorems are not (yet) supported
 
         # Present theorem as a definition list
@@ -180,12 +181,11 @@ def _add_markup(fmt, thm, value):
         ret = [start]+content+[endtags]
 
     elif fmt in ('html', 'html5', 'epub', 'epub2', 'epub3'):
-
-        if isinstance(targets[attrs.id][0], int):  # Numbered reference
+        if isinstance(targets[attrs.id].num, int):  # Numbered reference
             num = Str(' %d'%targets[attrs.id][0])
         else:  # Tagged reference
-            assert isinstance(targets[attrs.id][0], STRTYPES)
-            text = ' ' + targets[attrs.id][0]
+            assert isinstance(targets[attrs.id].num, STRTYPES)
+            text = ' ' + targets[attrs.id].num
             if text.startswith('$') and text.endswith('$'):
                 math = text.replace(' ', r'\ ')[1:-1]
                 num = Math({"t":"InlineMath", "c":[]}, math)
