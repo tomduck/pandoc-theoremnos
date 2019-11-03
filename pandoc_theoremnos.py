@@ -3,7 +3,7 @@
 """pandoc-theoremnos: a pandoc filter that inserts theorem nos. and refs."""
 
 
-__version__ = '2.0.0a1'
+__version__ = '2.0.0a2'
 
 
 # Copyright 2015-2019 Thomas J. Duck and Johannes Schlatow
@@ -78,8 +78,8 @@ references = {}  # Maps reference labels to [number/tag, theorem secno]
 
 PANDOCVERSION = None
 
-# Actions --------------------------------------------------------------------
 
+# Actions --------------------------------------------------------------------
 
 # pylint: disable=too-many-branches
 def _process_theorem(value, fmt):
@@ -330,17 +330,8 @@ def process(meta):
         sharedcounter = check_bool(get_meta(meta, 'theoremnos-shared-counter'))
 
     if 'theoremnos-names' in meta:
-        # TO DO: move this into get_meta of pandoc-xnos
         assert meta['theoremnos-names']['t'] == 'MetaList'
-        tmp = []
-        for data in meta['theoremnos-names']['c']:
-            assert data['t'] == 'MetaMap'
-            entry = dict()
-            for key in data['c']:
-                entry[key] = stringify(data['c'][key])
-            tmp.append(entry)
-
-        for entry in tmp:
+        for entry in get_meta(meta, 'theoremnos-names'):
             assert isinstance(entry, dict), "%s is of type %s" % \
               (entry, type(entry))
             assert 'id' in entry and isinstance(entry['id'], STRTYPES)
