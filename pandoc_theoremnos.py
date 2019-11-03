@@ -385,7 +385,7 @@ def add_tex(meta):
 
     if names:
         tex = """
-            %%%% pandoc-theoremnos: set theorem types
+            %% pandoc-theoremnos: set theorem types
             """
         firstid = None
         for thid, thname in names.items():
