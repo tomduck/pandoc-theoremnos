@@ -6,7 +6,7 @@
 __version__ = '2.0.0a1'
 
 
-# Copyright 2015-2019 Thomas J. Duck. Johannes Schlatow
+# Copyright 2015-2019 Thomas J. Duck and Johannes Schlatow
 # All rights reserved.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -43,21 +43,20 @@ import re
 import functools
 import argparse
 import json
-import copy
 import textwrap
 import uuid
 
 from pandocfilters import walk
-from pandocfilters import DefinitionList, Div, Plain, RawBlock, RawInline, Str, Span, stringify
+from pandocfilters import Div, Plain, RawBlock, Math, Str, Span
+from pandocfilters import stringify
 
 import pandocxnos
 from pandocxnos import PandocAttributes
 from pandocxnos import STRTYPES, STDIN, STDOUT, STDERR
 from pandocxnos import check_bool, get_meta
 from pandocxnos import repair_refs, process_refs_factory, replace_refs_factory
-from pandocxnos import attach_attrs_factory, detach_attrs_factory
+from pandocxnos import attach_attrs_factory
 from pandocxnos import insert_secnos_factory, delete_secnos_factory
-from pandocxnos import elt
 
 
 # Patterns for matching labels and references
@@ -111,12 +110,12 @@ def _process_theorem(value, fmt):
 
     counter = attrs.id.split(':')[0]
     if sharedcounter:
-       counter = 'shared'
+        counter = 'shared'
 
     # Update the current section number
     if attrs['secno'] != cursec:  # The section number changed
         cursec = attrs['secno']   # Update the global section tracker
-        for key, nref in Nreferences.items():
+        for key, nref in Nreferences.items(): # pylint: disable=unused-variable
             Nreferences[key] = 1           # Resets the global reference counter
 
     # Pandoc's --number-sections supports section numbering latex/pdf, html,
@@ -127,7 +126,8 @@ def _process_theorem(value, fmt):
         # tags.
         if fmt in ['html', 'html5', 'epub', 'epub2', 'epub3', 'docx'] and \
           'tag' not in attrs:
-            attrs['tag'] = str(cursec+secoffset) + '.' + str(Nreferences[counter])
+            attrs['tag'] = str(cursec+secoffset) + '.' + \
+              str(Nreferences[counter])
             Nreferences[counter] += 1
 
     # Save reference information
@@ -146,9 +146,8 @@ def _process_theorem(value, fmt):
     return thm
 
 
-def _adjust_theorem(fmt, thm, value):
+def _adjust_theorem(fmt, thm):
     """Adjusts the theorem depending on the output format."""
-    attrs = thm['attrs']
     if thm['is_unnumbered']:  # Unnumbered is also unreferenceable
         pass
     elif fmt in ['latex', 'beamer']:
@@ -157,6 +156,7 @@ def _adjust_theorem(fmt, thm, value):
         pass  # Insert html in _add_markup() instead
 
 
+# pylint: disable=too-many-locals
 def _add_markup(fmt, thm, value):
     """Adds markup to the output."""
 
@@ -170,7 +170,7 @@ def _add_markup(fmt, thm, value):
         # remark: tagged theorems are not (yet) supported
 
         # Present theorem as a definition list
-        env   = attrs.id.split(':')[0]
+        env = attrs.id.split(':')[0]
 
         tmp = value[0][0]['c'][1]
         title = ''
@@ -178,10 +178,10 @@ def _add_markup(fmt, thm, value):
             title = '[%s]' % stringify(tmp)
 
         start = RawBlock('tex',
-                          r'\begin{%s}%s%s' % \
-                            (env, title,
-                            '' if thm['is_unreferenceable'] else
-                             '\label{%s} '%attrs.id))
+                         r'\begin{%s}%s%s' % \
+                         (env, title,
+                          '' if thm['is_unreferenceable'] else
+                          r'\label{%s} '%attrs.id))
         endtags = RawBlock('tex',
                            r'\end{%s}' % env)
         content = value[1][0]
@@ -202,9 +202,9 @@ def _add_markup(fmt, thm, value):
 
         # Present theorem as a definition list
         outer = RawBlock('html',
-                          '<dl%sclass="theoremnos">' % \
-                            (' ' if thm['is_unreferenceable'] else
-                             ' id="%s" '%attrs.id))
+                         '<dl%sclass="theoremnos">' % \
+                         (' ' if thm['is_unreferenceable'] else
+                          ' id="%s" '%attrs.id))
         name = names[attrs.id.split(':')[0]]
         head = RawBlock('html', '<dt>')
         endhead = RawBlock('html', '</dt><dd>')
@@ -220,7 +220,7 @@ def _add_markup(fmt, thm, value):
         title.append(Str(':'))
         content = value[1][0]
         endtags = RawBlock('html', '</dd></dl>')
-        ret = [outer,head,Plain(title),endhead]+content+[endtags]
+        ret = [outer, head, Plain(title), endhead] + content + [endtags]
 
     return ret
 
@@ -239,10 +239,10 @@ def process_theorems(key, value, fmt, meta):  # pylint: disable=unused-argument
             thm = _process_theorem(val[0][0]['c'], fmt)
             assert thm['attrs'].id
 
-            _adjust_theorem(fmt, thm, val)
+            _adjust_theorem(fmt, thm)
             markup = markup + _add_markup(fmt, thm, val)
 
-        return Div(['',[],[]], markup)
+        return Div(['', [], []], markup)
 
     return None
 
@@ -292,7 +292,7 @@ def process(meta):
                  'xnos-number-by-section',
                  'theoremnos-shared-counter',
                  'theoremnos-number-by-section',
-                 'xnos-number-offset' ]
+                 'xnos-number-offset']
 
     if warninglevel:
         for name in meta:
@@ -311,7 +311,7 @@ def process(meta):
 
     for name in ['xnos-capitalise', 'xnos-capitalize']:
         # 'xnos-capitalise' enables capitalise in all 4 of
-        # fignos/eqnos/tablenos/theoremonos.  Since this uses an option in 
+        # fignos/eqnos/tablenos/theoremonos.  Since this uses an option in
         # the caption package, it is not possible to select between the four.
         # 'xnos-capitalize' is an alternative spelling
         if name in meta:
@@ -330,7 +330,7 @@ def process(meta):
         sharedcounter = check_bool(get_meta(meta, 'theoremnos-shared-counter'))
 
     if 'theoremnos-names' in meta:
-        # TODO move this into get_meta of pandoc-xnos
+        # TO DO: move this into get_meta of pandoc-xnos
         assert meta['theoremnos-names']['t'] == 'MetaList'
         tmp = []
         for data in meta['theoremnos-names']['c']:
@@ -341,7 +341,8 @@ def process(meta):
             tmp.append(entry)
 
         for entry in tmp:
-            assert isinstance(entry, dict), "%s is of type %s" % (entry, type(entry))
+            assert isinstance(entry, dict), "%s is of type %s" % \
+              (entry, type(entry))
             assert 'id' in entry and isinstance(entry['id'], STRTYPES)
             assert 'name' in entry and isinstance(entry['name'], STRTYPES)
             names[entry['id']] = entry['name']
@@ -349,15 +350,17 @@ def process(meta):
 
         Nreferences['shared'] = 0
 
-    if len(names):
-        LABEL_PATTERN = re.compile("(%s):%s" % ('|'.join(names.keys()), r'[\w/-]*'))
+    if names:
+        LABEL_PATTERN = \
+          re.compile("(%s):%s" % ('|'.join(names.keys()), r'[\w/-]*'))
 
 
 def add_tex(meta):
     """Adds tex to the meta data."""
 
     warnings = warninglevel == 2 and references and \
-      (pandocxnos.cleveref_required() or len(names) or secoffset or numbersections)
+      (pandocxnos.cleveref_required() or len(names) or secoffset or \
+       numbersections)
     if warnings:
         msg = textwrap.dedent("""\
                   pandoc-theoremnos: Wrote the following blocks to
@@ -389,15 +392,16 @@ def add_tex(meta):
             meta, 'tex', SECOFFSET_TEX % secoffset,
                         regex=r'\\setcounter\{section\}')
 
-    if len(names):
+    if names:
         tex = """
             %%%% pandoc-theoremnos: set theorem types
             """
         firstid = None
-        for thid,thname in names.items():
-            tex +=  """\\newtheorem{%s}%s{%s}%s
+        for thid, thname in names.items():
+            tex += """\\newtheorem{%s}%s{%s}%s
             """ % (thid, '[%s]' % firstid if firstid is not None else '',
-                   thname, '[section]' if numbersections and firstid is None else '')
+                   thname, '[section]' if numbersections and firstid is None \
+                   else '')
 
             if sharedcounter and firstid is None:
                 firstid = thid
@@ -407,8 +411,8 @@ def add_tex(meta):
     if warnings:
         STDERR.write('\n')
 
-def add_html(meta):
-    return
+# def add_html(meta):
+#     return
 
 # pylint: disable=too-many-locals, unused-argument
 def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
@@ -446,11 +450,13 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
         insert_secnos = insert_secnos_factory(Span)
         delete_secnos = delete_secnos_factory(Span)
         altered = functools.reduce(lambda x, action: walk(x, action, fmt, meta),
-                                   [insert_secnos, process_theorems, delete_secnos], blocks)
+                                   [insert_secnos, process_theorems,
+                                    delete_secnos], blocks)
 
         # Second pass
         if fmt in ('latex', 'beamer'):
-            process_refs = process_refs_factory('pandoc-theoremnos', LABEL_PATTERN,
+            process_refs = process_refs_factory('pandoc-theoremnos',
+                                                LABEL_PATTERN,
                                                 references.keys())
 
             # latex takes care of inserting the correct plusname/starname
@@ -470,10 +476,11 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
                 for key, value in references.items():
                     if key.split(':')[0] == thid:
                         refs[key] = value
-                if len(refs):
+                if refs:
 
                     PATTERN = re.compile("%s:%s" % (thid, r'[\w/-]*'))
-                    process_refs = process_refs_factory('pandoc-theoremnos', PATTERN,
+                    process_refs = process_refs_factory('pandoc-theoremnos',
+                                                        PATTERN,
                                                         refs.keys())
                     replace_refs = replace_refs_factory(refs,
                                                         cleveref, False,
@@ -492,8 +499,8 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
 
         if fmt in ['latex', 'beamer']:
             add_tex(meta)
-        elif fmt in ['html', 'html5', 'epub', 'epub2', 'epub3']:
-            add_html(meta)
+        # elif fmt in ['html', 'html5', 'epub', 'epub2', 'epub3']:
+        #     add_html(meta)
 
         # Update the doc
         if PANDOCVERSION >= '1.18':
