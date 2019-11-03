@@ -1,3 +1,10 @@
-pandoc-theoremnos 2.0.0a1 (unreleased)
+pandoc-theoremnos 2.0.0a2 (2019-11-03)
+
+    * Linting
+    * Moved some meta processing code to pandoc-xnos
+      (issue described in PR #1)
+
+
+pandoc-theoremnos 2.0.0a1 (2019-11-02)
 
     * Initial release
