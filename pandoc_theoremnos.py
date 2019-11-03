@@ -146,16 +146,6 @@ def _process_theorem(value, fmt):
     return thm
 
 
-def _adjust_theorem(fmt, thm):
-    """Adjusts the theorem depending on the output format."""
-    if thm['is_unnumbered']:  # Unnumbered is also unreferenceable
-        pass
-    elif fmt in ['latex', 'beamer']:
-        pass  # Insert tex in _add_markup() instead
-    elif fmt in ('html', 'html5', 'epub', 'epub2', 'epub3'):
-        pass  # Insert html in _add_markup() instead
-
-
 # pylint: disable=too-many-locals
 def _add_markup(fmt, thm, value):
     """Adds markup to the output."""
@@ -239,7 +229,6 @@ def process_theorems(key, value, fmt, meta):  # pylint: disable=unused-argument
             thm = _process_theorem(val[0][0]['c'], fmt)
             assert thm['attrs'].id
 
-            _adjust_theorem(fmt, thm)
             markup = markup + _add_markup(fmt, thm, val)
 
         return Div(['', [], []], markup)
@@ -254,9 +243,6 @@ SECOFFSET_TEX = r"""
 %% pandoc-theoremnos: section number offset
 \setcounter{section}{%s}
 """
-
-
-# Html blocks ----------------------------------------------------------------
 
 
 # Main program ---------------------------------------------------------------
@@ -402,8 +388,6 @@ def add_tex(meta):
     if warnings:
         STDERR.write('\n')
 
-# def add_html(meta):
-#     return
 
 # pylint: disable=too-many-locals, unused-argument
 def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
@@ -451,12 +435,7 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
                                                 references.keys())
 
             # latex takes care of inserting the correct plusname/starname
-            replace_refs = replace_refs_factory(references,
-                                                cleveref, False,
-                                                ['UNUSED'],
-                                                ['UNUSED'])
-
-            process_all_refs = [process_refs, replace_refs]
+            process_all_refs = [process_refs]
 
         else:
             # replace each theorem type separately (to insert the correct names)
@@ -490,8 +469,6 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
 
         if fmt in ['latex', 'beamer']:
             add_tex(meta)
-        # elif fmt in ['html', 'html5', 'epub', 'epub2', 'epub3']:
-        #     add_html(meta)
 
         # Update the doc
         if PANDOCVERSION >= '1.18':
