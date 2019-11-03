@@ -138,9 +138,11 @@ def _process_theorem(value, fmt):
             attrs['tag'] = attrs['tag'].strip('"')
         elif attrs['tag'][0] == "'" and attrs['tag'][-1] == "'":
             attrs['tag'] = attrs['tag'].strip("'")
-        targets[attrs.id] = [attrs['tag'], cursec]
+        targets[attrs.id] = pandocxnos.Target(attrs['tag'], cursec,
+                                              attrs.id in targets)
     else:
-        targets[attrs.id] = [Ntargets[counter], cursec]
+        targets[attrs.id] = pandocxnos.Target(Ntargets[counter], cursec,
+                                              attrs.id in targets)
         Ntargets[counter] += 1  # Increment the global reference counter
 
     return thm
