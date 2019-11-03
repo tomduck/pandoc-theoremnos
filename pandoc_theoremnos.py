@@ -29,7 +29,7 @@ __version__ = '2.0.0a2'
 #   1. Insert text for the theorem number in each theorem.
 #      For LaTeX, change to a numbered theorem and use \label{...}
 #      instead.  The theorem labels and associated theorem numbers
-#      are stored in the global references tracker.
+#      are stored in the global targets tracker.
 #
 #   2. Replace each reference with an theorem number.  For LaTeX,
 #      replace with \ref{...} instead.
@@ -72,9 +72,9 @@ secoffset = 0
 sharedcounter = False
 
 # Processing state variables
-cursec = None    # Current section
-Nreferences = dict()  # Number of references in current section (or document)
-references = {}  # Maps reference labels to [number/tag, theorem secno]
+cursec = None  # Current section
+Ntargets = {}  # Number of targets in current section (or document)
+targets = {}   # Maps targets labels to [number/tag, theorem secno]
 
 PANDOCVERSION = None
 
@@ -86,7 +86,7 @@ def _process_theorem(value, fmt):
     """Processes the theorem.  Returns a dict containing theorem properties."""
 
     # pylint: disable=global-statement
-    global Nreferences  # Global references counter
+    global Ntargets  # Global targets counter
     global cursec       # Current section
 
     # Initialize the return value
@@ -115,8 +115,8 @@ def _process_theorem(value, fmt):
     # Update the current section number
     if attrs['secno'] != cursec:  # The section number changed
         cursec = attrs['secno']   # Update the global section tracker
-        for key, nref in Nreferences.items(): # pylint: disable=unused-variable
-            Nreferences[key] = 1           # Resets the global reference counter
+        for key, nref in Ntargets.items(): # pylint: disable=unused-variable
+            Ntargets[key] =    1           # Resets the global target counter
 
     # Pandoc's --number-sections supports section numbering latex/pdf, html,
     # epub, and docx
@@ -127,8 +127,8 @@ def _process_theorem(value, fmt):
         if fmt in ['html', 'html5', 'epub', 'epub2', 'epub3', 'docx'] and \
           'tag' not in attrs:
             attrs['tag'] = str(cursec+secoffset) + '.' + \
-              str(Nreferences[counter])
-            Nreferences[counter] += 1
+              str(Ntargets[counter])
+            Ntargets[counter] += 1
 
     # Save reference information
     thm['is_tagged'] = 'tag' in attrs
@@ -138,10 +138,10 @@ def _process_theorem(value, fmt):
             attrs['tag'] = attrs['tag'].strip('"')
         elif attrs['tag'][0] == "'" and attrs['tag'][-1] == "'":
             attrs['tag'] = attrs['tag'].strip("'")
-        references[attrs.id] = [attrs['tag'], cursec]
+        targets[attrs.id] = [attrs['tag'], cursec]
     else:
-        references[attrs.id] = [Nreferences[counter], cursec]
-        Nreferences[counter] += 1  # Increment the global reference counter
+        targets[attrs.id] = [Ntargets[counter], cursec]
+        Ntargets[counter] += 1  # Increment the global reference counter
 
     return thm
 
@@ -179,11 +179,11 @@ def _add_markup(fmt, thm, value):
 
     elif fmt in ('html', 'html5', 'epub', 'epub2', 'epub3'):
 
-        if isinstance(references[attrs.id][0], int):  # Numbered reference
-            num = Str(' %d'%references[attrs.id][0])
+        if isinstance(targets[attrs.id][0], int):  # Numbered reference
+            num = Str(' %d'%targets[attrs.id][0])
         else:  # Tagged reference
-            assert isinstance(references[attrs.id][0], STRTYPES)
-            text = ' ' + references[attrs.id][0]
+            assert isinstance(targets[attrs.id][0], STRTYPES)
+            text = ' ' + targets[attrs.id][0]
             if text.startswith('$') and text.endswith('$'):
                 math = text.replace(' ', r'\ ')[1:-1]
                 num = Math({"t":"InlineMath", "c":[]}, math)
@@ -323,9 +323,9 @@ def process(meta):
             assert 'id' in entry and isinstance(entry['id'], STRTYPES)
             assert 'name' in entry and isinstance(entry['name'], STRTYPES)
             names[entry['id']] = entry['name']
-            Nreferences[entry['id']] = 0
+            Ntargets[entry['id']] = 0
 
-        Nreferences['shared'] = 0
+        Ntargets['shared'] = 0
 
     if names:
         LABEL_PATTERN = \
@@ -335,7 +335,7 @@ def process(meta):
 def add_tex(meta):
     """Adds tex to the meta data."""
 
-    warnings = warninglevel == 2 and references and \
+    warnings = warninglevel == 2 and targets and \
       (pandocxnos.cleveref_required() or len(names) or secoffset or \
        numbersections)
     if warnings:
@@ -354,7 +354,7 @@ def add_tex(meta):
     # is a known issue and is owing to a design decision in pandoc.
     # See https://github.com/jgm/pandoc/issues/3139.
 
-    if pandocxnos.cleveref_required() and references:
+    if pandocxnos.cleveref_required() and targets:
         tex = """
             %%%% pandoc-theoremnos: required package
             \\usepackage{amsthm}
@@ -364,7 +364,7 @@ def add_tex(meta):
             meta, 'tex', tex,
             regex=r'\\usepackage(\[[\w\s,]*\])?\{cleveref\}')
 
-    if secoffset and references:
+    if secoffset and targets:
         pandocxnos.add_to_header_includes(
             meta, 'tex', SECOFFSET_TEX % secoffset,
                         regex=r'\\setcounter\{section\}')
@@ -432,7 +432,7 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
         if fmt in ('latex', 'beamer'):
             process_refs = process_refs_factory('pandoc-theoremnos',
                                                 LABEL_PATTERN,
-                                                references.keys())
+                                                targets.keys())
 
             # latex takes care of inserting the correct plusname/starname
             process_all_refs = [process_refs]
@@ -443,7 +443,7 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
 
             for thid, thname in names.items():
                 refs = dict()
-                for key, value in references.items():
+                for key, value in targets.items():
                     if key.split(':')[0] == thid:
                         refs[key] = value
                 if refs:
