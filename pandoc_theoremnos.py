@@ -3,7 +3,7 @@
 """pandoc-theoremnos: a pandoc filter that inserts theorem nos. and refs."""
 
 
-__version__ = '2.0.0a2'
+__version__ = '2.0.0a3'
 
 
 # Copyright 2015-2019 Thomas J. Duck and Johannes Schlatow

@@ -7,7 +7,7 @@
 (to upgrade append the `--upgrade` flag).
 
 
-pandoc-theoremnos 2.0.0a2
+pandoc-theoremnos 2.0.0a3
 =========================
 
 *pandoc-theoremnos* is a [pandoc] filter for numbering theorem-like environments and their references when converting markdown to other formats.  It is part of the [pandoc-xnos] filter suite.  LaTeX/pdf, html, and epub output have native support.  Native support for docx output is a work in progress.
@@ -269,7 +269,7 @@ Developer notes are maintained in [DEVELOPERS.md].
 What's New
 ----------
 
-New in 2.2.1: Pandoc-theoremnos is a new filter. It has been marked with version number 2.2.1 in keeping with the major version number of the underlying pandoc-xnos library.
+**New in 2.0.0:** Initial release.
 
 
 ----
