@@ -47,7 +47,7 @@ import textwrap
 import uuid
 
 from pandocfilters import walk
-from pandocfilters import Div, Plain, RawBlock, Math, Str, Span
+from pandocfilters import Div, Plain, RawBlock, Math, Str, Span, DefinitionList
 from pandocfilters import stringify
 
 import pandocxnos
@@ -65,7 +65,7 @@ LABEL_PATTERN = None
 # Meta variables; may be reset elsewhere
 cleveref = False    # Flags that clever references should be used
 capitalise = False  # Flags that plusname should be capitalised
-names = dict()      # Stores names and types of theorems
+names = {}          # Stores names and types of theorems
 warninglevel = 2        # 0 - no warnings; 1 - some warnings; 2 - all warnings
 numbersections = False  # Flags that theorems should be numbered by section
 secoffset = 0
@@ -87,21 +87,17 @@ def _process_theorem(value, fmt):
 
     # pylint: disable=global-statement
     global Ntargets  # Global targets counter
-    global cursec       # Current section
+    global cursec    # Current section
 
     # Initialize the return value
-    thm = {'is_unnumbered': False,
-           'is_unreferenceable': False,
+    thm = {'is_unreferenceable': False,
            'is_tagged': False}
 
     # Parse the theorem attributes
     attrs = thm['attrs'] = PandocAttributes(value[0], 'pandoc')
 
     # Bail out if the label does not conform to expectations
-    if not LABEL_PATTERN or not LABEL_PATTERN.match(attrs.id):
-        assert False, "%s" % LABEL_PATTERN
-        thm.update({'is_unnumbered':True, 'is_unreferenceable':True})
-        return thm
+    assert LABEL_PATTERN and LABEL_PATTERN.match(attrs.id)
 
     # Identify unreferenceable theorems
     if attrs.id[-1] == ':': # Make up a unique description
@@ -116,7 +112,7 @@ def _process_theorem(value, fmt):
     if attrs['secno'] != cursec:  # The section number changed
         cursec = attrs['secno']   # Update the global section tracker
         for key, nref in Ntargets.items(): # pylint: disable=unused-variable
-            Ntargets[key] =    1           # Resets the global target counter
+            Ntargets[key] = 1              # Resets the global target counter
 
     # Pandoc's --number-sections supports section numbering latex/pdf, html,
     # epub, and docx
@@ -147,16 +143,12 @@ def _process_theorem(value, fmt):
 
     return thm
 
-
 # pylint: disable=too-many-locals
 def _add_markup(fmt, thm, value):
     """Adds markup to the output."""
 
     attrs = thm['attrs']
     ret = None
-
-    if thm['is_unnumbered']:  # Unnumbered is also unreferenceable
-        assert False, "is unnumbered"  # Not currently supported
 
     if fmt in ['latex', 'beamer']:
 
@@ -175,14 +167,13 @@ def _add_markup(fmt, thm, value):
                          (env, title,
                           '' if thm['is_unreferenceable'] else
                           r'\label{%s} '%attrs.id))
-        endtags = RawBlock('tex',
-                           r'\end{%s}' % env)
+        endtags = RawBlock('tex', r'\end{%s}' % env)
         content = value[1][0]
         ret = [start]+content+[endtags]
 
     elif fmt in ('html', 'html5', 'epub', 'epub2', 'epub3'):
         if isinstance(targets[attrs.id].num, int):  # Numbered reference
-            num = Str(' %d'%targets[attrs.id][0])
+            num = Str(' %d'%targets[attrs.id].num)
         else:  # Tagged reference
             assert isinstance(targets[attrs.id].num, STRTYPES)
             text = ' ' + targets[attrs.id].num
@@ -214,26 +205,50 @@ def _add_markup(fmt, thm, value):
         endtags = RawBlock('html', '</dd></dl>')
         ret = [outer, head, Plain(title), endhead] + content + [endtags]
 
+    # To do: define default behaviour
+
     return ret
 
+def _is_theorem(item):
+    """Returns True if item is a theorem; false otherwise."""
+    if item[0][0]['t'] != 'Span':
+        return False
+    attrs = PandocAttributes(item[0][0]['c'][0], 'pandoc')
+    return bool(LABEL_PATTERN.match(attrs.id)) if LABEL_PATTERN else False
 
 def process_theorems(key, value, fmt, meta):  # pylint: disable=unused-argument
     """Processes the attributed definition lists."""
 
     # Process definition lists and add markup
     if key == 'DefinitionList':
-        markup = []
-        for val in value: # iterate entries
-            if val[0][0]['t'] != 'Span':
-                # skip if it is a normal definition list
-                return None
 
-            thm = _process_theorem(val[0][0]['c'], fmt)
-            assert thm['attrs'].id
+        # Split items into groups of regular and numbered items
+        itemgroups = []
+        tmp = []
+        cond = True
+        for v in value:
+            if _is_theorem(v) == cond:
+                tmp.append(v)
+            else:
+                cond = not cond
+                if tmp:
+                    itemgroups.append(tmp)
+                    tmp = [v]
+        if tmp:
+            itemgroups.append(tmp)
 
-            markup = markup + _add_markup(fmt, thm, val)
-
-        return Div(['', [], []], markup)
+        # Process each group of items
+        ret = []
+        for items in itemgroups:
+            if _is_theorem(items[0]):  # These are numbered items
+                markup = []
+                for item in items:  # Iterate entries
+                    thm = _process_theorem(item[0][0]['c'], fmt)
+                    markup = markup + _add_markup(fmt, thm, item)
+                ret.append(Div(['', ['theoremnos'], []], markup))
+            else:  # These are regular (unnumbered) items
+                ret.append(DefinitionList(items))
+        return ret
 
     return None
 
@@ -432,27 +447,33 @@ def main(stdin=STDIN, stdout=STDOUT, stderr=STDERR):
 
         # Second pass
         if fmt in ('latex', 'beamer'):
-            process_refs = process_refs_factory('pandoc-theoremnos',
-                                                LABEL_PATTERN,
+            process_refs = process_refs_factory(LABEL_PATTERN,
                                                 targets.keys())
 
-            # latex takes care of inserting the correct plusname/starname
-            process_all_refs = [process_refs]
+            STDERR.write('\n')
+            STDERR.write(str(LABEL_PATTERN))
+            STDERR.write('\n')
 
+            # Latex takes care of inserting the correct plusname/starname
+            replace_refs = replace_refs_factory(targets,
+                                                cleveref, False,
+                                                ['UNUSED'],
+                                                ['UNUSED'])
+            
+            process_all_refs = [process_refs, replace_refs]
         else:
-            # replace each theorem type separately (to insert the correct names)
+            # Replace each theorem type separately (to insert the correct names)
             process_all_refs = []
 
             for thid, thname in names.items():
-                refs = dict()
+                refs = {}
                 for key, value in targets.items():
                     if key.split(':')[0] == thid:
                         refs[key] = value
                 if refs:
 
                     PATTERN = re.compile("%s:%s" % (thid, r'[\w/-]*'))
-                    process_refs = process_refs_factory('pandoc-theoremnos',
-                                                        PATTERN,
+                    process_refs = process_refs_factory(PATTERN,
                                                         refs.keys())
                     replace_refs = replace_refs_factory(refs,
                                                         cleveref, False,
