@@ -6,7 +6,7 @@
 __version__ = '2.0.0a3'
 
 
-# Copyright 2015-2019 Thomas J. Duck and Johannes Schlatow
+# Copyright 2015-2020 Thomas J. Duck and Johannes Schlatow
 # All rights reserved.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -47,7 +47,7 @@ import textwrap
 import uuid
 
 from pandocfilters import walk
-from pandocfilters import Div, Plain, RawBlock, Math, Str, Span, DefinitionList
+from pandocfilters import Div, Plain, RawBlock, RawInline, Math, Str, Span, DefinitionList
 from pandocfilters import stringify
 
 import pandocxnos
@@ -66,10 +66,12 @@ LABEL_PATTERN = None
 cleveref = False    # Flags that clever references should be used
 capitalise = False  # Flags that plusname should be capitalised
 names = {}          # Stores names and types of theorems
+styles = {}         # Stores styles for tcolorbox
 warninglevel = 2        # 0 - no warnings; 1 - some warnings; 2 - all warnings
 numbersections = False  # Flags that theorems should be numbered by section
 secoffset = 0
 sharedcounter = False
+texbackend = 'amsthm'
 
 # Processing state variables
 cursec = None  # Current section
@@ -159,17 +161,29 @@ def _add_markup(fmt, thm, value):
 
         tmp = value[0][0]['c'][1]
         title = ''
-        if len(tmp) >= 1:
-            title = '[%s]' % stringify(tmp)
 
-        start = RawBlock('tex',
-                         r'\begin{%s}%s%s' % \
-                         (env, title,
-                          '' if thm['is_unreferenceable'] else
-                          r'\label{%s} '%attrs.id))
-        endtags = RawBlock('tex', r'\end{%s}' % env)
+        if texbackend == 'amsthm':
+            if len(tmp) >= 1:
+                title = '[%s]' % stringify(tmp)
+            start = RawInline('tex',
+                             r'\begin{%s}%s%s' % \
+                             (env, title,
+                              '' if thm['is_unreferenceable'] else
+                              '\\label{%s}\n' % attrs.id))
+            endtags = RawInline('tex', '\n\\end{%s}' % env)
+        elif texbackend == 'tcolorbox':
+            if len(tmp) >= 1:
+                title = '%s' % stringify(tmp)
+            start = RawInline('tex',
+                             '\\begin{%s}{%s}{%s}\n' % \
+                             (env, title,
+                              '' if thm['is_unreferenceable'] else
+                              r'%s '%attrs.id.split(':')[1]))
+            endtags = RawInline('tex', '\n\\end{%s}' % env)
+
         content = value[1][0]
-        ret = [start]+content+[endtags]
+        content[0]['c'] = [start] + content[0]['c'] + [endtags]
+        ret = content
 
     elif fmt in ('html', 'html5', 'epub', 'epub2', 'epub3'):
         if isinstance(targets[attrs.id].num, int):  # Numbered reference
@@ -273,11 +287,13 @@ def process(meta):
     global cleveref    # Flags that clever references should be used
     global capitalise  # Flags that plusname should be capitalised
     global names       # Sets theorem types and names
+    global styles      # Sets styles for tcolorbox
     global warninglevel    # 0 - no warnings; 1 - some; 2 - all
     global LABEL_PATTERN
     global numbersections
     global secoffset
     global sharedcounter
+    global texbackend
 
     # Read in the metadata fields and do some checking
 
@@ -295,6 +311,7 @@ def process(meta):
                  'xnos-number-by-section',
                  'theoremnos-shared-counter',
                  'theoremnos-number-by-section',
+                 'theoremnos-tex-backend',
                  'xnos-number-offset']
 
     if warninglevel:
@@ -332,6 +349,14 @@ def process(meta):
     if 'theoremnos-shared-counter' in meta:
         sharedcounter = check_bool(get_meta(meta, 'theoremnos-shared-counter'))
 
+    if 'theoremnos-tex-backend' in meta:
+        texbackend = get_meta(meta, 'theoremnos-tex-backend')
+        if texbackend != 'amsthm' and texbackend != 'tcolorbox':
+            msg = textwrap.dedent("""
+                      pandoc-theoremnos: unknown tex-backend "%s"\n
+                  """ % texbackend)
+            STDERR.write(msg)
+
     if 'theoremnos-names' in meta:
         assert meta['theoremnos-names']['t'] == 'MetaList'
         for entry in get_meta(meta, 'theoremnos-names'):
@@ -340,6 +365,8 @@ def process(meta):
             assert 'id' in entry and isinstance(entry['id'], STRTYPES)
             assert 'name' in entry and isinstance(entry['name'], STRTYPES)
             names[entry['id']] = entry['name']
+            if 'style' in entry and isinstance(entry['style'], STRTYPES):
+                styles[entry['id']] = entry['style']
             Ntargets[entry['id']] = 0
 
         Ntargets['shared'] = 0
@@ -392,10 +419,18 @@ def add_tex(meta):
             """
         firstid = None
         for thid, thname in names.items():
-            tex += """\\newtheorem{%s}%s{%s}%s
-            """ % (thid, '[%s]' % firstid if firstid is not None else '',
-                   thname, '[section]' if numbersections and firstid is None \
-                   else '')
+            if texbackend == 'amsthm':
+                tex += """\\newtheorem{%s}%s{%s}%s
+                """ % (thid, '[%s]' % firstid if firstid is not None else '',
+                       thname, '[section]' if numbersections and firstid is None \
+                       else '')
+            elif texbackend == 'tcolorbox':
+                style = styles[thid] if thid in styles else ''
+                tex += """\\newtcbtheorem[crefname={%s}{%ss},Crefname={%s}{%ss}%s%s]{%s}{%s}{%s}{%s}
+            """     % ( thname.lower(), thname.lower(), thname, thname,
+                       ',number within=section' if numbersections and firstid is None else '',
+                       ',use counter from=%s' % firstid if firstid is not None else '',
+                       thid, thname, style, thid)
 
             if sharedcounter and firstid is None:
                 firstid = thid

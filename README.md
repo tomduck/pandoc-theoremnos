@@ -145,9 +145,12 @@ Customization
 Pandoc-theoremnos may be customized by setting variables in the [metadata block] or on the command line (using `-M KEY=VAL`).  The following variables are supported:
 
   * `theoremnos-names` - This is mandatory and specifies the list of
-    theorem-like environments. Every list entry is a map with two entries:
+    theorem-like environments. Every list entry is a map with up to three
+    entries:
     `id` specifies the type identifier (e.g. thm) whereas `name` sets
     the printed name that will be put in front of the number (e.g. Theorem).
+    An optional entry `style` allows customizing the theorem style if using
+    tcolorbox for tex output (see theoremnos-tex-backend).
 
   * `theoremnos-warning-level` or `xnos-warning-level` - Set to `0` for
     no warnings, `1` for critical warnings, or `2` (default) for
@@ -183,6 +186,9 @@ Pandoc-theoremnos may be customized by setting variables in the [metadata block]
     type shall share the same counter (i.e. Definition 1, Theorem 2)
     instead of counting separately for every type.
 
+  * `theoremnos-tex-backend` - Set to 'tcolorbox' if theorems shall
+    be set with the tex package tcolorbox instead of amsthm.
+
 Note that variables beginning with `theoremnos-` apply to only pandoc-theoremnos, whereas variables beginning with `xnos-` apply to all of the pandoc-fignos/eqnos/tablenos/secnos/theremnos.
 
 [metadata block]: http://pandoc.org/README.html#extension-yaml_metadata_block
@@ -199,20 +205,28 @@ During processing, pandoc-theoremnos inserts packages and supporting TeX into th
 An example reference in TeX looks like
 
 ~~~latex
-See \cref{thm:1}.
+See \cref{thm:mylabel}.
 ~~~
 
 For every entry in the `theoremnos-names` meta variable, a theorem type will be defined like
 
 ~~~latex
 \newtheorem{thm}{Theorem}
+
+% or, if theoremnos-tex-backend=tcolorbox:
+\newtcbtheorem[crefname={theorem}{theorems},Crefname={Theorem}{Theorems}]{thm}{Theorem}{style}{thm}
 ~~~
 
 An example theorem looks like
 
 ~~~latex
 \begin{thm}[My Theorem]
-  \label{th:1}
+  \label{thm:mylabel}
+  This is my theorem.
+\end{thm}
+
+% or, if theoremnos-tex-backend=tcolorbox:
+\begin{thm}{My Theorem}{mylabel}
   This is my theorem.
 \end{thm}
 ~~~
