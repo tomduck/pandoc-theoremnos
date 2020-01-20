@@ -182,8 +182,7 @@ def _add_markup(fmt, thm, value):
             endtags = RawInline('tex', '\n\\end{%s}' % env)
 
         content = value[1][0]
-        content[0]['c'] = [start] + content[0]['c'] + [endtags]
-        ret = content
+        ret = [Plain([start])] + content + [Plain([endtags])]
 
     elif fmt in ('html', 'html5', 'epub', 'epub2', 'epub3'):
         if isinstance(targets[attrs.id].num, int):  # Numbered reference
