@@ -247,7 +247,7 @@ def process_theorems(key, value, fmt, meta):  # pylint: disable=unused-argument
                 cond = not cond
                 if tmp:
                     itemgroups.append(tmp)
-                    tmp = [v]
+                tmp = [v]
         if tmp:
             itemgroups.append(tmp)
 
