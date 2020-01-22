@@ -425,8 +425,8 @@ def add_tex(meta):
                        else '')
             elif texbackend == 'tcolorbox':
                 style = styles[thid] if thid in styles else ''
-                tex += """\\newtcbtheorem[crefname={%s}{%ss},Crefname={%s}{%ss}%s%s]{%s}{%s}{%s}{%s}
-            """     % ( thname.lower(), thname.lower(), thname, thname,
+                tex += """\\newtcbtheorem[Crefname={%s}{%ss}%s%s]{%s}{%s}{%s}{%s}
+            """     % ( thname, thname,
                        ',number within=section' if numbersections and firstid is None else '',
                        ',use counter from=%s' % firstid if firstid is not None else '',
                        thid, thname, style, thid)
