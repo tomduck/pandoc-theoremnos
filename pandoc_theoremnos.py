@@ -3,7 +3,7 @@
 """pandoc-theoremnos: a pandoc filter that inserts theorem nos. and refs."""
 
 
-__version__ = '2.0.0a3'
+__version__ = '2.0.0a4'
 
 
 # Copyright 2015-2020 Thomas J. Duck and Johannes Schlatow
@@ -160,11 +160,31 @@ def _add_markup(fmt, thm, value):
         env = attrs.id.split(':')[0]
 
         tmp = value[0][0]['c'][1]
+        tmp_title = []
         title = ''
+
+        # walk title subtree and keeping some formatting
+        def _title_markup(key, val, fmt, markup):
+            if key in ['Str', 'MetaString']:
+                tmp_title.append(val)
+            elif key == 'Code':
+                tmp_title.append(val[1])
+            elif key == 'Math':
+                tmp_title.append('$')
+                tmp_title.append(val[1])
+                tmp_title.append('$')
+            elif key == 'LineBreak':
+                tmp_title.append(" ")
+            elif key == 'SoftBreak':
+                tmp_title.append(" ")
+            elif key == 'Space':
+                tmp_title.append(" ")
+
+        walk(tmp, _title_markup, "", {})
 
         if texbackend == 'amsthm':
             if len(tmp) >= 1:
-                title = '[%s]' % stringify(tmp)
+                title = '[%s]' % ''.join(tmp_title)
             start = RawInline('tex',
                              r'\begin{%s}%s%s' % \
                              (env, title,
@@ -173,7 +193,7 @@ def _add_markup(fmt, thm, value):
             endtags = RawInline('tex', '\n\\end{%s}' % env)
         elif texbackend == 'tcolorbox':
             if len(tmp) >= 1:
-                title = '%s' % stringify(tmp)
+                title = ''.join(tmp_title)
             start = RawInline('tex',
                              '\\begin{%s}{%s}{%s}\n' % \
                              (env, title,
